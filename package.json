@@ -1,6 +1,6 @@
 {
   "name": "options_simulation",
-  "homepage": "https://Watee22.github.io/options_simulation/",
+  "homepage": "https://kild23.gitee.io/options_simulation/",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist",
+    "deploy-gitee": "gh-pages -r gitee -d dist"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",
