@@ -140,7 +140,7 @@ export default function Portfolio({ onTradeStockClick, onTradeOptionClick }) {
                     <div className="font-bold text-white flex items-center gap-2">
                        {opt.strike} 
                        <span className={`text-xs px-1.5 py-0.5 rounded font-bold ${typeColor}`}>
-                         {opt.type === 'CALL' ? '看涨' : '看跌'}
+                         {opt.type === 'CALL' ? '认购' : '认沽'}
                        </span>
                        <span className="text-xs text-slate-400 font-normal">
                          到期: {new Date(opt.expiration).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}

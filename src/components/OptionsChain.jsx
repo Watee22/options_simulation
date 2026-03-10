@@ -152,9 +152,9 @@ export default function OptionsChain({ onTradeClick }) {
         <table className="w-full whitespace-nowrap">
           <thead className="bg-slate-900 border-b border-slate-700 sticky top-0 z-10">
             <tr>
-              <th colSpan="5" className="px-4 py-2 text-center text-emerald-400 font-semibold border-r border-slate-700">看涨期权 (CALL)</th>
+              <th colSpan="5" className="px-4 py-2 text-center text-emerald-400 font-semibold border-r border-slate-700">认购期权 (CALL)</th>
               <th className="px-4 py-2 text-center text-white font-bold bg-slate-800">行权价</th>
-              <th colSpan="5" className="px-4 py-2 text-center text-rose-400 font-semibold border-l border-slate-700">看跌期权 (PUT)</th>
+              <th colSpan="5" className="px-4 py-2 text-center text-rose-400 font-semibold border-l border-slate-700">认沽期权 (PUT)</th>
             </tr>
             <tr className="text-xs text-slate-400 uppercase tracking-wider bg-slate-800/50">
               <th className="px-3 py-2 font-medium">Vega</th>

@@ -1,4 +1,4 @@
-import { X, BookOpen, ShieldCheck, TrendingUp, AlertCircle } from 'lucide-react';
+import { X, BookOpen, ShieldCheck, TrendingUp, AlertCircle, DollarSign } from 'lucide-react';
 import { useState } from 'react';
 
 export default function TutorialModal({ onClose }) {
@@ -6,8 +6,9 @@ export default function TutorialModal({ onClose }) {
 
   const tabs = [
     { id: 'basics', label: '期权基础' },
-    { id: 'protective-put', label: '保护性看跌' },
-    { id: 'covered-call', label: '备兑开仓' },
+    { id: 'protective-put', label: '保护性认沽' },
+    { id: 'covered-call', label: '备兑认购' },
+    { id: 'cash-secured-put', label: '现金担保认沽' },
   ];
 
   return (
@@ -57,12 +58,12 @@ export default function TutorialModal({ onClose }) {
                 </p>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="bg-emerald-900/20 border border-emerald-900/50 p-4 rounded-lg">
-                    <h4 className="font-bold text-emerald-400 mb-2">看涨期权 (Call)</h4>
-                    <p className="text-sm">预期股票会上涨。买入Call让你有权以锁定低价买入股票。</p>
+                    <h4 className="font-bold text-emerald-400 mb-2">认购期权 (Call)</h4>
+                    <p className="text-sm">预期股票会上涨。买入认购期权让你有权以锁定低价买入股票。</p>
                   </div>
                   <div className="bg-rose-900/20 border border-rose-900/50 p-4 rounded-lg">
-                    <h4 className="font-bold text-rose-400 mb-2">看跌期权 (Put)</h4>
-                    <p className="text-sm">预期股票会下跌。买入Put让你有权以锁定高价卖出股票（做空保护）。</p>
+                    <h4 className="font-bold text-rose-400 mb-2">认沽期权 (Put)</h4>
+                    <p className="text-sm">预期股票会下跌。买入认沽期权让你有权以锁定高价卖出股票（做空保护）。</p>
                   </div>
                 </div>
               </div>
@@ -91,10 +92,10 @@ export default function TutorialModal({ onClose }) {
             <div className="space-y-6 animate-in fade-in duration-300">
               <div className="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md">
                 <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                  <ShieldCheck className="text-emerald-400" /> 保护性看跌期权 (Protective Put)
+                  <ShieldCheck className="text-emerald-400" /> 保护性认沽期权 (Protective Put)
                 </h3>
                 <p className="mb-4 leading-relaxed">
-                  相当于为你的股票买一份“保险”。当你持有股票，但担心市场即将暴跌（例如财报发布、地缘冲突前夕），你可以买入看跌期权来对冲风险。
+                  相当于为你的股票买一份“保险”。当你持有股票，但担心市场即将暴跌（例如财报发布、地缘冲突前夕），你可以买入认沽期权来对冲风险。
                 </p>
                 <div className="bg-slate-900 p-4 rounded-lg border border-slate-800 mb-4">
                   <h4 className="font-bold text-slate-200 mb-2">🎓 策略组成</h4>
@@ -118,7 +119,7 @@ export default function TutorialModal({ onClose }) {
               <div className="bg-blue-900/20 border border-blue-800/50 p-4 rounded-lg flex items-start gap-3">
                 <AlertCircle className="text-blue-400 mt-0.5 shrink-0" size={18} />
                 <p className="text-sm text-blue-200">
-                  <strong>实战提示：</strong> 在地缘冲突前夕，市场恐慌情绪上升，会推高期权的隐匿波动率（期权变贵）。如果你已经持有股票，购买Put可以完美避开暴跌，你可以随时点击“提前行权”锁定卖出价。
+                  <strong>实战提示：</strong> 在地缘冲突前夕，市场恐慌情绪上升，会推高期权的隐匿波动率（期权变贵）。如果你已经持有股票，购买认沽期权可以完美避开暴跌，你可以随时点击“提前行权”锁定卖出价。
                 </p>
               </div>
             </div>
@@ -128,10 +129,10 @@ export default function TutorialModal({ onClose }) {
             <div className="space-y-6 animate-in fade-in duration-300">
               <div className="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md">
                 <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                  <TrendingUp className="text-indigo-400" /> 备兑开仓 (Covered Call)
+                  <TrendingUp className="text-indigo-400" /> 备兑认购开仓 (Covered Call)
                 </h3>
                 <p className="mb-4 leading-relaxed">
-                  这是一种在横盘或温和牛市中增加收益的策略。当你持有股票，且认为短期内不会暴涨，你可以卖出看涨期权（收取权利金/期权费），作为额外的“股息”收入。
+                  这是一种在横盘或温和牛市中增加收益的策略。当你持有股票，且认为短期内不会暴涨，你可以卖出认购期权（收取权利金/期权费），作为额外的“股息”收入。
                 </p>
                 <div className="bg-slate-900 p-4 rounded-lg border border-slate-800 mb-4">
                   <h4 className="font-bold text-slate-200 mb-2">🎓 策略组成</h4>
@@ -155,7 +156,44 @@ export default function TutorialModal({ onClose }) {
               <div className="bg-amber-900/20 border border-amber-800/50 p-4 rounded-lg flex items-start gap-3">
                 <AlertCircle className="text-amber-400 mt-0.5 shrink-0" size={18} />
                 <p className="text-sm text-amber-200">
-                  <strong>实战提示：</strong> 在模拟器中，如果你卖出（做空）了一张Call，你无需点击“行权”，因为你是卖方，行权权在买方。如果到期日股价高于行权价，系统会自动以行权价卖出你的股票进行结算。如果你不想被强制卖出股票，可以在到期前"买入"相同的Call平仓 (Buy to Close)。
+                  <strong>实战提示：</strong> 在模拟器中，如果你卖出（做空）了一张认购期权，你无需点击“行权”，因为你是卖方，行权权在买方。如果到期日股价高于行权价，系统会自动以行权价卖出你的股票进行结算。如果你不想被强制卖出股票，可以在到期前"买入"相同的认购期权平仓 (Buy to Close)。
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'cash-secured-put' && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              <div className="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md">
+                <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                  <DollarSign className="text-emerald-400" /> 现金担保认沽期权 (Cash-Secured Put)
+                </h3>
+                <p className="mb-4 leading-relaxed">
+                  这是一种“低价买入”或“赚取收益”的双重策略。你通过卖出认沽期权并保留足够的现金，来承诺在未来的某个行权价买入股票。
+                </p>
+                <div className="bg-slate-900 p-4 rounded-lg border border-slate-800 mb-4">
+                  <h4 className="font-bold text-slate-200 mb-2">🎓 策略组成</h4>
+                  <ul className="list-disc list-inside space-y-1 text-sm">
+                    <li><span className="text-emerald-400">保留现金</span> (Cash) - 足够以行权价买入股票</li>
+                    <li><span className="text-rose-400">卖出认沽期权</span> (Short Put) - 收取期权费</li>
+                  </ul>
+                </div>
+                
+                <h4 className="font-bold text-slate-200 mb-2">📉 收益特征</h4>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex gap-2">
+                    <span className="text-emerald-400 font-bold shrink-0">主要目标:</span> 获取期权费收入，或以比当前市价更低的价格（行权价 - 已收期权费）买入标的股票。
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="text-rose-400 font-bold shrink-0">风险:</span> 如果股价跌破行权价，你必须以行权价买入股票。这类似于你原本就打算在那个价格买入股票，但期权费降低了你的实际持仓成本。
+                  </li>
+                </ul>
+              </div>
+
+              <div className="bg-indigo-900/20 border border-indigo-800/50 p-4 rounded-lg flex items-start gap-3">
+                <AlertCircle className="text-indigo-400 mt-0.5 shrink-0" size={18} />
+                <p className="text-sm text-indigo-200">
+                  <strong>实战提示：</strong> 这是著名的“轮式策略 (Wheel Strategy)”的第一步。如果被行权拿到了股票，下一步通常是针对这些股票进行“备兑认购 (Covered Call)”操作。
                 </p>
               </div>
             </div>

@@ -119,7 +119,7 @@ export default function TradeModal({ tradeDetails, onClose }) {
             <div>
               <div className="text-sm text-slate-400 font-medium uppercase tracking-wider mb-1">交易标的</div>
               <div className="text-xl font-bold text-white">
-                {isStock ? 'TOCK (正股)' : `行权价 ${tradeDetails.strike} ${tradeDetails.type === 'CALL' ? '看涨' : '看跌'}`}
+                {isStock ? 'TOCK (正股)' : `行权价 ${tradeDetails.strike} ${tradeDetails.type === 'CALL' ? '认购' : '认沽'}`}
               </div>
             </div>
             <div className="text-right">
