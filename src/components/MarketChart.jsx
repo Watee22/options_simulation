@@ -1,8 +1,8 @@
 import { useTradingStore } from '../store/useTradingStore';
 import { ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, Label } from 'recharts';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Info, ShieldAlert, Cpu, Award } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 
 // Custom shape for candlestick chart matching Recharts API
 const Candlestick = (props) => {
@@ -44,6 +44,8 @@ export default function MarketChart() {
   const priceChangePercent = (priceChange / startPrice) * 100;
   const isPositive = priceChange >= 0;
 
+  const [showLore, setShowLore] = useState(false);
+
   // Prepare data for composing candlestick and volume
   const chartData = priceHistory.map(d => ({
     ...d,
@@ -84,10 +86,45 @@ export default function MarketChart() {
 
   return (
     <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg flex flex-col h-full w-full">
-      <div className="flex justify-between items-start mb-6">
+      <div className="flex justify-between items-start mb-6 relative">
         <div>
-          <h2 className="text-xl font-bold text-white mb-1">TOCK 实时走势</h2>
-          <div className="flex items-end gap-3">
+          <div className="flex items-center gap-2 mb-1">
+            <h2 
+              className="text-xl font-bold text-white flex items-center gap-2 cursor-pointer hover:text-indigo-300 transition-colors"
+              onClick={() => setShowLore(!showLore)}
+            >
+              TOCK 实时走势
+              <Info size={18} className={`${showLore ? 'text-indigo-400' : 'text-slate-400'}`} />
+            </h2>
+          </div>
+          
+          {showLore && (
+            <div className="absolute top-8 left-0 z-50 w-[420px] bg-slate-900 border border-indigo-500/30 rounded-xl shadow-2xl p-5 mt-2 animate-in fade-in zoom-in-95 duration-200">
+              <h3 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-emerald-400 mb-2 border-b border-slate-800 pb-2">
+                TOCK (泰坦半导体动力科技)
+              </h3>
+              <p className="text-sm text-slate-300 mb-4 leading-relaxed">
+                一家深耕下一代半导体晶圆制造与尖端消费电子组装的<strong className="text-white">顶尖高新科技企业</strong>。由于身处全球供应链的核心咽喉，其股价对宏观事件极其敏感。
+              </p>
+              
+              <div className="space-y-3">
+                <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                  <h4 className="flex items-center gap-2 text-sm font-bold text-amber-400 mb-1"><Cpu size={16} /> 美联储利率 (FOMC)</h4>
+                  <p className="text-xs text-slate-400">作为资本密集型科技股，TOCK的估值受利率严重压制。降息是强力催化剂，加息则重挫估值体系。</p>
+                </div>
+                <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                  <h4 className="flex items-center gap-2 text-sm font-bold text-rose-400 mb-1"><ShieldAlert size={16} /> 地缘冲突与断供</h4>
+                  <p className="text-xs text-slate-400">主营海外高端制造，对地缘冲突极为敏感。一旦出现断供风险，股价会遭受重缩并引发恐慌性期权抢筹 (IV极速扩张)。</p>
+                </div>
+                <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                  <h4 className="flex items-center gap-2 text-sm font-bold text-emerald-400 mb-1"><Award size={16} /> 业绩与超大合同</h4>
+                  <p className="text-xs text-slate-400">凭借核心技术壁垒，若斩获国家级超大订单或财报大超预期，能瞬间扭转颓势，带来极其暴力的向上跳空 (Gap-up)。</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-end gap-3 mt-2">
             <span className="text-3xl font-bold text-slate-100">{formatCurrency(currentPrice)}</span>
             <span className={`flex items-center text-sm font-semibold mb-1 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
               {isPositive ? <TrendingUp size={16} className="mr-1" /> : <TrendingDown size={16} className="mr-1" />}
