@@ -59,7 +59,9 @@ export default function MarketChart() {
     }
   }, [chartData.length]);
 
-  const minChartWidth = Math.max(chartData.length * 20, 800);
+  // Make the chart width proportional to the number of days so that 30 days exactly fits the container view.
+  const visibleDays = 30;
+  const chartWidthPercent = Math.max(100, (chartData.length / visibleDays) * 100);
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -99,7 +101,7 @@ export default function MarketChart() {
         ref={scrollContainerRef}
         className="flex-1 min-h-[300px] overflow-x-auto overflow-y-hidden custom-scrollbar"
       >
-        <div style={{ minWidth: `${minChartWidth}px`, height: '100%' }} className="flex flex-col gap-1 relative pr-4">
+        <div style={{ width: `${chartWidthPercent}%`, minWidth: '100%', height: '100%' }} className="flex flex-col gap-1 relative pr-4">
           <ResponsiveContainer width="100%" height="80%">
             <ComposedChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
