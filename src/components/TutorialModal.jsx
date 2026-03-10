@@ -85,6 +85,27 @@ export default function TutorialModal({ onClose }) {
                   </li>
                 </ul>
               </div>
+
+              <div className="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-md">
+                <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                  <span className="bg-rose-500/20 text-rose-400 p-1.5 rounded-lg">⚖️</span> 买方 vs 卖方 (权利与义务)
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-bold text-emerald-400 mb-1">作为买方 (买入开仓):</h4>
+                    <p className="text-sm">支付权利金，获得权利。如果股价对你有利，你可以行使权利获得收益；如果不利，你最多损失支付的全部权利金。</p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-rose-400 mb-1">作为卖方 (卖出开仓):</h4>
+                    <p className="text-sm mb-2">收取权利金，<strong className="text-white">承担义务</strong>。如果买方要求行权，你必须履行合约：</p>
+                    <ul className="list-disc list-inside space-y-1 text-xs text-slate-400 pl-2">
+                      <li><strong className="text-slate-200 font-semibold">卖出认购 (Short Call)</strong>: 你有义务以行权价<strong className="text-rose-300">卖出</strong>股票。</li>
+                      <li><strong className="text-slate-200 font-semibold">卖出认沽 (Short Put)</strong>: 你有义务以行权价<strong className="text-emerald-300">买入</strong>股票。</li>
+                    </ul>
+                    <p className="text-xs text-slate-400 mt-2 italic">※ 卖方风险通常高于买方，因为你处于被动接受行权的一方。</p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
