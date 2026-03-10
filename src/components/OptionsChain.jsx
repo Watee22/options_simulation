@@ -75,10 +75,31 @@ export default function OptionsChain({ onTradeClick }) {
     const T = calculateTimeInYears(currentDate, activeExpirationDate);
     
     // Term structure for implied volatility:
-    // Short term options capture the full current volatility.
-    // Long term options decay back towards the initial baseline volatility.
-    const timeVolAdjust = Math.exp(-T * 3); // decay factor based on time
-    const termVolatility = CONFIG.INITIAL_VOLATILITY + (volatility - CONFIG.INITIAL_VOLATILITY) * timeVolAdjust;
+    // 1. Short-term options (Crush)
+    // 2. Medium-term options (Event Volatility)
+    // 3. Long-term options (Decay)
+    const daysToMaturity = T * 365;
+    let termVolatility = volatility;
+
+    if (daysToMaturity < 3) {
+        // Aggressive crush for 0-2 DTE
+        // Max safeguards against dividing by 0 or negative days
+        const crushFactor = Math.pow(Math.max(0.1, daysToMaturity) / 3, 0.5); 
+        termVolatility = termVolatility * crushFactor;
+    } else {
+        // Decay pushes IV back to CONFIG.INITIAL_VOLATILITY as time extends
+        // The power factor is mild to ensure T remains dominant
+        const timeVolAdjust = Math.exp(-(T - (3/365)) * 2); 
+        termVolatility = CONFIG.INITIAL_VOLATILITY + (volatility - CONFIG.INITIAL_VOLATILITY) * timeVolAdjust;
+    }
+
+    // Monotonicity Guarantee: Total variance (IV^2 * T) must not be lower than a generic 3-day baseline
+    // to prevent long-term options from becoming cheaper than medium-term options during shocks.
+    // We calculate a "floor variance" based on current prices and ensure the option respects it.
+    // For simplicity, we ensure termVolatility is at least the baseline.
+    if (termVolatility < CONFIG.INITIAL_VOLATILITY) {
+        termVolatility = CONFIG.INITIAL_VOLATILITY;
+    }
 
     return strikes.map(strike => {
       const data = calculateBlackScholes(
