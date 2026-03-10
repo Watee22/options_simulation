@@ -46,7 +46,11 @@ export const useTradingStore = create((set, get) => ({
     options: [] // Array of option position objects: { id, type (CALL/PUT), strike, quantity, averagePrice }
   },
   
+  // Settings
+  hintMode: false,
+  
   // Actions
+  toggleHintMode: () => set((state) => ({ hintMode: !state.hintMode })),
   advanceDay: (ohlc, newVolatility) => set((state) => {
     const nextDate = new Date(state.currentDate);
     nextDate.setDate(nextDate.getDate() + 1);

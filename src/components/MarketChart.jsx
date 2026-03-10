@@ -1,8 +1,9 @@
 import { useTradingStore } from '../store/useTradingStore';
 import { ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, Label } from 'recharts';
-import { TrendingUp, TrendingDown, Info, ShieldAlert, Cpu, Award } from 'lucide-react';
+import { TrendingUp, TrendingDown, Info, ShieldAlert, Cpu, Award, Lightbulb } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
+import { MACRO_EVENTS, getDateStringMD } from '../constants/eventsConfig';
 
 // Custom shape for candlestick chart matching Recharts API
 const Candlestick = (props) => {
@@ -38,6 +39,9 @@ const Candlestick = (props) => {
 export default function MarketChart() {
   const priceHistory = useTradingStore(state => state.priceHistory);
   const currentPrice = useTradingStore(state => state.currentStockPrice);
+  const currentDate = useTradingStore(state => state.currentDate);
+  const hintMode = useTradingStore(state => state.hintMode);
+  
   const startPrice = priceHistory[0]?.price || currentPrice;
   
   const priceChange = currentPrice - startPrice;
@@ -45,6 +49,23 @@ export default function MarketChart() {
   const isPositive = priceChange >= 0;
 
   const [showLore, setShowLore] = useState(false);
+
+  // Check for upcoming events within 2 days for the hint system
+  const upcomingEvent = useMemo(() => {
+    if (!hintMode) return null;
+    
+    // Check today, tomorrow, and day after tomorrow
+    for (let i = 0; i <= 2; i++) {
+        const checkDate = new Date(currentDate);
+        checkDate.setDate(checkDate.getDate() + i);
+        const md = getDateStringMD(checkDate);
+        const evt = MACRO_EVENTS[md];
+        if (evt) {
+            return { event: evt, daysAway: i };
+        }
+    }
+    return null;
+  }, [currentDate, hintMode]);
 
   // Prepare data for composing candlestick and volume
   const chartData = priceHistory.map(d => ({
@@ -133,6 +154,23 @@ export default function MarketChart() {
           </div>
         </div>
       </div>
+      
+      {hintMode && upcomingEvent && (
+        <div className="mb-4 bg-amber-900/20 border border-amber-500/30 rounded-xl p-4 flex gap-3 animate-in fade-in slide-in-from-top-2">
+          <Lightbulb className="text-amber-400 shrink-0 mt-0.5" size={20} />
+          <div>
+            <h4 className="text-amber-400 font-bold mb-1">
+              事件预警: {upcomingEvent.daysAway === 0 ? '今日' : `${upcomingEvent.daysAway}天后`}有宏观大事件 ({upcomingEvent.event.name})
+            </h4>
+            <p className="text-sm text-amber-200/90 leading-relaxed">
+              {upcomingEvent.event.type === 'earnings' || upcomingEvent.event.type === 'catalyst' || upcomingEvent.event.type === 'geopolitical' ? 
+                '高能预警：重大不可预知事件即将来临。期权隐含波动率(IV)目前处于极高水平（期权极贵）。财报或事件落地后，IV大概率会迅速崩塌 (IV Crush)，导致期权价值大幅缩水。此时直接买入单腿期权胜率极低，考虑卖出期权（收取高昂的权利金）或构建价差策略。' 
+                : 
+                '宏观数据发布在即，市场情绪通常趋于谨慎，波动率会小幅上升。请注意仓位管理，避免在数据公布瞬间双向波动的绞杀风险。'}
+            </p>
+          </div>
+        </div>
+      )}
       
       <div 
         ref={scrollContainerRef}

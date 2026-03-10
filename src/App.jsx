@@ -6,11 +6,14 @@ import Portfolio from './components/Portfolio';
 import TradeModal from './components/TradeModal';
 import TutorialModal from './components/TutorialModal';
 import { useTradingStore } from './store/useTradingStore';
-import { Activity, BookOpen } from 'lucide-react';
+import { Activity, BookOpen, Lightbulb } from 'lucide-react';
 
 function App() {
   const [tradeDetails, setTradeDetails] = useState(null);
   const [showTutorial, setShowTutorial] = useState(false);
+  
+  const hintMode = useTradingStore(state => state.hintMode);
+  const toggleHintMode = useTradingStore(state => state.toggleHintMode);
   
   const handleOptionTradeClick = (details) => {
     setTradeDetails(details);
@@ -39,7 +42,18 @@ function App() {
             </h1>
             <p className="text-slate-400 text-sm font-medium">前沿量化教学实盘推演系统</p>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-3">
+            <button
+              onClick={toggleHintMode}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium border transition-colors shadow-sm ${
+                hintMode 
+                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20' 
+                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-slate-300'
+              }`}
+            >
+              <Lightbulb size={18} className={hintMode ? 'text-amber-400 fill-amber-400/20' : ''} />
+              {hintMode ? '提示模式: 开' : '提示模式: 关'}
+            </button>
             <button 
               onClick={() => setShowTutorial(true)}
               className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg font-medium border border-slate-700 transition-colors shadow-sm"

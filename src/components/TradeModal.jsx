@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTradingStore } from '../store/useTradingStore';
 import { formatCurrency } from '../utils/formatters';
-import { X, TrendingUp, TrendingDown } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, Lightbulb } from 'lucide-react';
 
 export default function TradeModal({ tradeDetails, onClose }) {
   const [quantity, setQuantity] = useState('');
@@ -13,6 +13,7 @@ export default function TradeModal({ tradeDetails, onClose }) {
   const currentDate = useTradingStore(state => state.currentDate);
   const tradeStock = useTradingStore(state => state.tradeStock);
   const tradeOption = useTradingStore(state => state.tradeOption);
+  const hintMode = useTradingStore(state => state.hintMode);
 
   if (!tradeDetails) return null;
 
@@ -168,6 +169,46 @@ export default function TradeModal({ tradeDetails, onClose }) {
                {quantity ? formatCurrency((parseFloat(quantity) || 0) * displayPrice * multiplier) : '$0.00'}
              </span>
           </div>
+
+          {!isStock && quantity > 0 && (
+            <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/30 flex justify-between items-center">
+               <span className="text-indigo-300 text-sm font-medium">盈亏平衡点 (Break-even)</span>
+               <span className="text-indigo-400 font-bold">
+                 {tradeDetails.type === 'CALL' 
+                   ? formatCurrency(tradeDetails.strike + displayPrice) 
+                   : formatCurrency(tradeDetails.strike - displayPrice)}
+               </span>
+            </div>
+          )}
+          
+          {isStock && quantity > 0 && (
+            <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/30 flex justify-between items-center">
+               <span className="text-indigo-300 text-sm font-medium">当前成本价 (Cost Basis)</span>
+               <span className="text-indigo-400 font-bold">
+                 {formatCurrency(displayPrice)}
+               </span>
+            </div>
+          )}
+
+          {hintMode && (
+             <div className="bg-amber-900/20 border border-amber-500/30 p-4 rounded-xl relative overflow-hidden">
+               <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+               <div className="flex items-start gap-3">
+                 <Lightbulb className="text-amber-400 shrink-0 mt-0.5" size={18} />
+                 <div className="text-sm text-amber-200/90 leading-relaxed font-medium">
+                   {isStock ? (
+                     action === 'BUY' ? '提示：您正在买入正股，预期股价上涨。最大亏损为买入金额，最大收益无限。' : '提示：您正在做空或卖出正股，预期股价下跌。注意裸做空风险极高。'
+                   ) : (
+                     tradeDetails.type === 'CALL' ? (
+                       action === 'BUY' ? '提示：您正在买入认购期权。强烈看涨。如果到期未超过盈亏平衡点将产生亏损，最大亏损为全部权利金。' : '提示：您正在卖出认购期权。看跌或看平。您将获得权利金，但如果有正股，将会限制正股上涨带来的收益（备兑）；如果无正股（裸卖），风险无限大。'
+                     ) : (
+                       action === 'BUY' ? '提示：您正在买入认沽期权。强烈看跌。常用于对冲正股下跌风险（买保险），最大亏损为全部权利金。' : '提示：您正在卖出认沽期权。看涨或看平。您将获得权利金，但如果股价大跌，您有义务以比现价更高的行权价买入股票。'
+                     )
+                   )}
+                 </div>
+               </div>
+             </div>
+          )}
           
           {limitMsg && (
              <div className="text-amber-400 bg-amber-400/10 px-4 py-2 rounded-lg text-sm text-center animate-pulse">
