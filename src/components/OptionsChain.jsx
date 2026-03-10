@@ -24,7 +24,27 @@ export default function OptionsChain({ onTradeClick }) {
         expDate.setDate(dateCursor.getDate() + (i * 7));
         dates.push(expDate);
     }
-    return dates;
+
+    // Add ultra-long term option (April 30th, end of simulation)
+    const longTermExp = new Date(CONFIG.END_DATE);
+    // Set time to 0 to avoid matching issues
+    longTermExp.setHours(0,0,0,0);
+    
+    if (!dates.some(d => d.getTime() === longTermExp.getTime())) {
+        dates.push(longTermExp);
+    }
+
+    // Filter out past ones and sort
+    const validDates = dates.filter(d => {
+        const d_day = new Date(d);
+        d_day.setHours(0,0,0,0);
+        const c_day = new Date(currentDate);
+        c_day.setHours(0,0,0,0);
+        return d_day >= c_day;
+    });
+    
+    validDates.sort((a, b) => a - b);
+    return validDates;
   }, [currentDate]);
 
   const [selectedExpiration, setSelectedExpiration] = useState(0);
@@ -53,17 +73,24 @@ export default function OptionsChain({ onTradeClick }) {
   const optionsData = useMemo(() => {
     if (!activeExpirationDate) return [];
     const T = calculateTimeInYears(currentDate, activeExpirationDate);
+    
+    // Term structure for implied volatility:
+    // Short term options capture the full current volatility.
+    // Long term options decay back towards the initial baseline volatility.
+    const timeVolAdjust = Math.exp(-T * 3); // decay factor based on time
+    const termVolatility = CONFIG.INITIAL_VOLATILITY + (volatility - CONFIG.INITIAL_VOLATILITY) * timeVolAdjust;
+
     return strikes.map(strike => {
       const data = calculateBlackScholes(
         currentPrice, 
         strike, 
         T, 
         CONFIG.RISK_FREE_RATE, 
-        volatility
+        termVolatility
       );
-      return { strike, ...data };
+      return { strike, termVolatility, ...data };
     });
-  }, [strikes, currentPrice, currentDate, volatility]);
+  }, [strikes, currentPrice, currentDate, volatility, activeExpirationDate]);
 
   const Cell = ({ value, isMoney, onClick }) => (
     <td 
@@ -96,6 +123,7 @@ export default function OptionsChain({ onTradeClick }) {
         </h2>
         <div className="flex items-center gap-4 text-sm font-medium">
           <span className="text-slate-400">隐含波动率: <span className="text-amber-400">{(volatility * 100).toFixed(1)}%</span></span>
+          <span className="text-slate-400">到期波动率: <span className="text-rose-400">{(optionsData.length > 0 ? optionsData[0].termVolatility * 100 : volatility * 100).toFixed(1)}%</span></span>
         </div>
       </div>
       
