@@ -54,16 +54,30 @@ export default function TutorialModal({ onClose }) {
                   <span className="bg-indigo-500/20 text-indigo-400 p-1.5 rounded-lg">🤔</span> 什么是期权？
                 </h3>
                 <p className="mb-4 leading-relaxed">
-                  期权是一种合约，赋予持有人在特定日期（到期日）或之前，以特定价格（行权价）买入或卖出特定数量标的资产（如股票）的权利（但不是义务）。
+                  期权是一种合约，赋予持有人在特定日期（到期日）或之前，以特定价格（行权价）买入或卖出标的资产（如股票）的权利。
                 </p>
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="bg-emerald-900/20 border border-emerald-900/50 p-4 rounded-lg">
-                    <h4 className="font-bold text-emerald-400 mb-2">认购期权 (Call)</h4>
-                    <p className="text-sm">预期股票会上涨。买入认购期权让你有权以锁定低价买入股票。</p>
+                  <div className="bg-emerald-900/20 border border-emerald-900/50 p-4 rounded-lg space-y-3">
+                    <h4 className="font-bold text-emerald-400 border-b border-emerald-500/30 pb-1">认购期权 (Call Option)</h4>
+                    <div>
+                      <div className="text-xs font-bold text-emerald-300">买入认购 (Buy Call)</div>
+                      <p className="text-xs text-slate-300">看涨股票。支付小额权利金，获得以行权价<span className="text-emerald-400 font-semibold">买入</span>股票的权利。</p>
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-rose-300">卖出认购 (Sell Call)</div>
+                      <p className="text-xs text-slate-300">看平或看跌。收取权利金，但在买方行权时，有义务以行权价<span className="text-rose-400 font-semibold">卖出</span>股票。</p>
+                    </div>
                   </div>
-                  <div className="bg-rose-900/20 border border-rose-900/50 p-4 rounded-lg">
-                    <h4 className="font-bold text-rose-400 mb-2">认沽期权 (Put)</h4>
-                    <p className="text-sm">预期股票会下跌。买入认沽期权让你有权以锁定高价卖出股票（做空保护）。</p>
+                  <div className="bg-rose-900/20 border border-rose-900/50 p-4 rounded-lg space-y-3">
+                    <h4 className="font-bold text-rose-400 border-b border-rose-500/30 pb-1">认沽期权 (Put Option)</h4>
+                    <div>
+                      <div className="text-xs font-bold text-rose-300">买入认沽 (Buy Put)</div>
+                      <p className="text-xs text-slate-300">看跌股票。支付权利金，获得以行权价<span className="text-rose-400 font-semibold">卖出</span>股票的权利，用于下跌时的对冲保护。</p>
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-emerald-300">卖出认沽 (Sell Put)</div>
+                      <p className="text-xs text-slate-300">看平或看涨。收取权利金，但在买方行权时，有义务以行权价<span className="text-emerald-400 font-semibold">买入</span>股票。</p>
+                    </div>
                   </div>
                 </div>
               </div>
