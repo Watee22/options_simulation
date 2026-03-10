@@ -14,6 +14,18 @@ export const MACRO_EVENTS = {
       { type: 'Bearish', desc: '战争爆发，恐慌蔓延！', priceObj: { jump: 0.85 }, volCrush: 0 /* Volatility actually spikes, handled in post-event logic */ }
     ]
   },
+  '3/5': {
+    id: 'national_contract',
+    name: '国家超大型订单',
+    type: 'catalyst',
+    description: '公司成功斩获国家级超大合同，营收预期翻番！',
+    color: '#10b981', // emerald
+    volatilityImpact: 0.20, // Pre-event speculation
+    results: [
+      { type: 'Bullish', desc: '合同细节超预期，机构疯狂扫货！', priceObj: { jump: 1.25 }, volCrush: 0.5 },
+      { type: 'Bullish', desc: '重大突破，但市场已部分priced in', priceObj: { jump: 1.10 }, volCrush: 0.6 }
+    ]
+  },
   // Key matches the M/D string
   '3/20': {
     id: 'fomc_mar',

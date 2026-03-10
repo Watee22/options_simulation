@@ -2,6 +2,7 @@ import { useTradingStore } from '../store/useTradingStore';
 import { ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, Label } from 'recharts';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
+import { useRef, useEffect } from 'react';
 
 // Custom shape for candlestick chart matching Recharts API
 const Candlestick = (props) => {
@@ -49,6 +50,17 @@ export default function MarketChart() {
     ohlc: [d.open, d.close] // This gives Recharts the body bounds for the custom shape
   }));
 
+  const scrollContainerRef = useRef(null);
+
+  // Auto-scroll to the right whenever data changes
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+    }
+  }, [chartData.length]);
+
+  const minChartWidth = Math.max(chartData.length * 20, 800);
+
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -83,53 +95,58 @@ export default function MarketChart() {
         </div>
       </div>
       
-      <div className="flex-1 min-h-[300px] flex flex-col gap-1 relative">
-        <ResponsiveContainer width="100%" height="80%">
-          <ComposedChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-            <XAxis 
-              dataKey="date" 
-              hide
-            />
-            <YAxis 
-              stroke="#94a3b8" 
-              tick={{ fill: '#94a3b8', fontSize: 12 }}
-              domain={['dataMin - 5', 'dataMax + 5']}
-              tickFormatter={(val) => `$${val}`}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#475569', strokeDasharray: '3 3' }} />
-            <Bar dataKey="ohlc" shape={<Candlestick />} isAnimationActive={false} />
-            
-            {chartData.filter(d => d.event).map((d, index) => (
-               <ReferenceLine 
-                 key={`event-${index}`} 
-                 x={d.date} 
-                 stroke={d.eventColor || '#f59e0b'} 
-                 strokeDasharray="3 3"
-               >
-                 <Label value={d.event} position="insideTopLeft" fill={d.eventColor || '#f59e0b'} offset={10} fontSize={12} />
-               </ReferenceLine>
-            ))}
-          </ComposedChart>
-        </ResponsiveContainer>
-        
-        <ResponsiveContainer width="100%" height="20%">
-           <ComposedChart data={chartData} margin={{ top: 0, right: 5, left: -20, bottom: 0 }}>
-            <XAxis 
-              dataKey="date" 
-              stroke="#94a3b8" 
-              tick={{ fill: '#94a3b8', fontSize: 12 }}
-              tickFormatter={(val) => {
-                const date = new Date(val);
-                return `${date.getMonth() + 1}/${date.getDate()}`;
-              }}
-              minTickGap={20}
-            />
-            <YAxis hide domain={[0, 'auto']} />
-            <Bar dataKey="volume" fill="#475569" isAnimationActive={false}>
-            </Bar>
-           </ComposedChart>
-        </ResponsiveContainer>
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 min-h-[300px] overflow-x-auto overflow-y-hidden custom-scrollbar"
+      >
+        <div style={{ minWidth: `${minChartWidth}px`, height: '100%' }} className="flex flex-col gap-1 relative pr-4">
+          <ResponsiveContainer width="100%" height="80%">
+            <ComposedChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+              <XAxis 
+                dataKey="date" 
+                hide
+              />
+              <YAxis 
+                stroke="#94a3b8" 
+                tick={{ fill: '#94a3b8', fontSize: 12 }}
+                domain={['dataMin - 5', 'dataMax + 5']}
+                tickFormatter={(val) => `$${val}`}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#475569', strokeDasharray: '3 3' }} />
+              <Bar dataKey="ohlc" shape={<Candlestick />} isAnimationActive={false} />
+              
+              {chartData.filter(d => d.event).map((d, index) => (
+                 <ReferenceLine 
+                   key={`event-${index}`} 
+                   x={d.date} 
+                   stroke={d.eventColor || '#f59e0b'} 
+                   strokeDasharray="3 3"
+                 >
+                   <Label value={d.event} position="insideTopLeft" fill={d.eventColor || '#f59e0b'} offset={10} fontSize={12} />
+                 </ReferenceLine>
+              ))}
+            </ComposedChart>
+          </ResponsiveContainer>
+          
+          <ResponsiveContainer width="100%" height="20%">
+             <ComposedChart data={chartData} margin={{ top: 0, right: 5, left: -20, bottom: 0 }}>
+              <XAxis 
+                dataKey="date" 
+                stroke="#94a3b8" 
+                tick={{ fill: '#94a3b8', fontSize: 12 }}
+                tickFormatter={(val) => {
+                  const date = new Date(val);
+                  return `${date.getMonth() + 1}/${date.getDate()}`;
+                }}
+                minTickGap={20}
+              />
+              <YAxis hide domain={[0, 'auto']} />
+              <Bar dataKey="volume" fill="#475569" isAnimationActive={false}>
+              </Bar>
+             </ComposedChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
