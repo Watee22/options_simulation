@@ -234,6 +234,54 @@ export const useTradingStore = create((set, get) => ({
     };
   }),
 
+  // Exercise an option manually
+  exerciseOption: (optionId) => set((state) => {
+    const optionIndex = state.positions.options.findIndex(o => o.id === optionId);
+    if (optionIndex === -1) return state;
+
+    const opt = state.positions.options[optionIndex];
+    if (opt.quantity <= 0) {
+      alert('只能对买方期权（持有数量大于0）行使权利。');
+      return state;
+    }
+
+    const { type, strike, quantity } = opt;
+    // 1 option contract = 100 shares
+    const positionSize = quantity * 100;
+    const strikeCost = positionSize * strike;
+
+    let newCash = state.cash;
+    let newStockQuantity = state.positions.stock;
+
+    if (type === 'CALL') {
+      // Buy stock at strike price
+      if (newCash < strikeCost) {
+        alert(`现金不足，无法行权。需要: $${strikeCost.toFixed(2)}，当前: $${newCash.toFixed(2)}`);
+        return state;
+      }
+      newCash -= strikeCost;
+      newStockQuantity += positionSize;
+      alert(`行权成功！以 $${strike} 买入 ${positionSize} 股。`);
+    } else {
+      // Sell stock at strike price
+      newCash += strikeCost;
+      newStockQuantity -= positionSize;
+      alert(`行权成功！以 $${strike} 卖出 ${positionSize} 股。`);
+    }
+
+    const newOptions = [...state.positions.options];
+    newOptions.splice(optionIndex, 1); // remove the exercised option
+
+    return {
+      cash: newCash,
+      positions: {
+        ...state.positions,
+        stock: newStockQuantity,
+        options: newOptions
+      }
+    };
+  }),
+
   // trading handlers
   resetSimulation: () => set((state) => {
     // Save current attempt to history

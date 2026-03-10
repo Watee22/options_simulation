@@ -11,6 +11,7 @@ export default function Portfolio({ onTradeStockClick, onTradeOptionClick }) {
   const currentPrice = useTradingStore(state => state.currentStockPrice);
   const currentDate = useTradingStore(state => state.currentDate);
   const volatility = useTradingStore(state => state.volatility);
+  const exerciseOption = useTradingStore(state => state.exerciseOption);
 
   // Calculate Unrealized PnL and Net Liq
   const pnlData = useMemo(() => {
@@ -149,11 +150,26 @@ export default function Portfolio({ onTradeStockClick, onTradeOptionClick }) {
                       {Math.abs(opt.quantity)} 张 {opt.quantity > 0 ? '做多' : '做空'} @ 成本 {formatCurrency(opt.averagePrice)}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-slate-200">{formatCurrency(Math.abs(opt.currentValue))}</div>
-                    <div className={`text-xs font-semibold ${pnlColor}`}>
-                      {opt.unrealizedPnL >= 0 ? '+' : ''}{formatCurrency(opt.unrealizedPnL)} PnL
+                  <div className="text-right flex flex-col items-end gap-2">
+                    <div>
+                      <div className="font-semibold text-slate-200">{formatCurrency(Math.abs(opt.currentValue))}</div>
+                      <div className={`text-xs font-semibold ${pnlColor}`}>
+                        {opt.unrealizedPnL >= 0 ? '+' : ''}{formatCurrency(opt.unrealizedPnL)} PnL
+                      </div>
                     </div>
+                    {opt.quantity > 0 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`确定要提前行权吗？\n${opt.type === 'CALL' ? '这将使用现金买入对应股票。' : '这将卖出对应股票换取现金。'}`)) {
+                            exerciseOption(opt.id);
+                          }
+                        }}
+                        className="px-2 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded transition-colors mt-1"
+                      >
+                        提前行权
+                      </button>
+                    )}
                   </div>
                 </div>
               );

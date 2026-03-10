@@ -4,11 +4,13 @@ import MarketChart from './components/MarketChart';
 import OptionsChain from './components/OptionsChain';
 import Portfolio from './components/Portfolio';
 import TradeModal from './components/TradeModal';
+import TutorialModal from './components/TutorialModal';
 import { useTradingStore } from './store/useTradingStore';
-import { Activity } from 'lucide-react';
+import { Activity, BookOpen } from 'lucide-react';
 
 function App() {
   const [tradeDetails, setTradeDetails] = useState(null);
+  const [showTutorial, setShowTutorial] = useState(false);
   
   const handleOptionTradeClick = (details) => {
     setTradeDetails(details);
@@ -36,6 +38,15 @@ function App() {
               期权与股票交易模拟器
             </h1>
             <p className="text-slate-400 text-sm font-medium">前沿量化教学实盘推演系统</p>
+          </div>
+          <div className="ml-auto">
+            <button 
+              onClick={() => setShowTutorial(true)}
+              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg font-medium border border-slate-700 transition-colors shadow-sm"
+            >
+              <BookOpen size={18} className="text-indigo-400" />
+              策略演练手册
+            </button>
           </div>
         </header>
 
@@ -69,6 +80,10 @@ function App() {
           tradeDetails={tradeDetails} 
           onClose={closeTradeModal} 
         />
+      )}
+      
+      {showTutorial && (
+        <TutorialModal onClose={() => setShowTutorial(false)} />
       )}
     </div>
   );
