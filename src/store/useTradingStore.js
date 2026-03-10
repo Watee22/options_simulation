@@ -1,6 +1,25 @@
 // src/store/useTradingStore.js
 import { create } from 'zustand';
 import { CONFIG } from '../constants/config';
+import { generateHistoricalData } from '../utils/mathUtils';
+
+const PAST_DAYS_TO_GENERATE = 30;
+
+// Helper to init history
+function buildInitialHistory() {
+  const pastDate = new Date(CONFIG.START_DATE);
+  pastDate.setDate(pastDate.getDate() - PAST_DAYS_TO_GENERATE);
+  return generateHistoricalData(
+    pastDate, 
+    PAST_DAYS_TO_GENERATE, 
+    CONFIG.INITIAL_STOCK_PRICE * 0.95, // Start a bit lower 30 days ago for some variance
+    CONFIG.RISK_FREE_RATE, 
+    CONFIG.INITIAL_VOLATILITY
+  );
+}
+
+const initialHistory = buildInitialHistory();
+const initialStockPrice = initialHistory[initialHistory.length - 1].close;
 
 export const useTradingStore = create((set, get) => ({
   // History of runs in this session window
@@ -11,19 +30,9 @@ export const useTradingStore = create((set, get) => ({
   isExpired: false, // True when reached END_DATE
 
   // Market state
-  currentStockPrice: CONFIG.INITIAL_STOCK_PRICE,
+  currentStockPrice: initialStockPrice,
   riskFreeRate: CONFIG.RISK_FREE_RATE, // Dynamic store state for interest rate
-  priceHistory: [
-    { 
-      date: new Date(CONFIG.START_DATE).toLocaleDateString(), 
-      price: CONFIG.INITIAL_STOCK_PRICE,
-      open: CONFIG.INITIAL_STOCK_PRICE,
-      high: CONFIG.INITIAL_STOCK_PRICE,
-      low: CONFIG.INITIAL_STOCK_PRICE,
-      close: CONFIG.INITIAL_STOCK_PRICE,
-      volume: 0
-    }
-  ],
+  priceHistory: initialHistory,
   volatility: CONFIG.INITIAL_VOLATILITY,
   
   // Multi-day Shock state
@@ -41,11 +50,11 @@ export const useTradingStore = create((set, get) => ({
   advanceDay: (ohlc, newVolatility) => set((state) => {
     const nextDate = new Date(state.currentDate);
     nextDate.setDate(nextDate.getDate() + 1);
-    const endDate = new Date(CONFIG.END_DATE);
-    const isExpired = nextDate >= endDate;
-    
-    // Ensure we don't go past end date
-    if (nextDate > endDate) {
+    const END_DATE_OBJ = new Date(CONFIG.END_DATE);
+    const isExpired = nextDate >= END_DATE_OBJ;
+    // Advanced Day Settlement check (only when nextDate crosses END_DATE, or later for weekly options)
+    // For now we'll handle the overall simulation expiration the same way, but options chain expiration will be handled separately.
+    if (nextDate > END_DATE_OBJ) {
       return state;
     }
 
@@ -62,10 +71,34 @@ export const useTradingStore = create((set, get) => ({
       }
     ];
 
+    let currentOptions = [...state.positions.options];
+    let dailyFinalCash = state.cash;
+
+    // Process individual option expirations
+    const activeOptions = [];
+    currentOptions.forEach(opt => {
+      // Re-parse the option expiration
+      const optExpDate = new Date(opt.expiration);
+      
+      if (nextDate > optExpDate) {
+         // Option expired naturally today or yesterday
+         let intrinsicValue = 0;
+         if (opt.type === 'CALL') {
+           intrinsicValue = Math.max(0, ohlc.close - opt.strike);
+         } else {
+           intrinsicValue = Math.max(0, opt.strike - ohlc.close);
+         }
+         // Assignment / Settlement Cash impact
+         dailyFinalCash += intrinsicValue * opt.quantity * 100;
+      } else {
+         activeOptions.push(opt);
+      }
+    });
+
     if (isExpired) {
-       // Auto settle at expiration
-       let finalCash = state.cash;
-       state.positions.options.forEach(opt => {
+       // Auto settle EVERYTHING remaining at simulation end
+       let finalCash = dailyFinalCash;
+       activeOptions.forEach(opt => {
          let intrinsicValue = 0;
          if (opt.type === 'CALL') {
            intrinsicValue = Math.max(0, ohlc.close - opt.strike);
@@ -94,7 +127,12 @@ export const useTradingStore = create((set, get) => ({
       currentStockPrice: ohlc.close,
       volatility: newVolatility !== undefined ? newVolatility : state.volatility,
       riskFreeRate: state.riskFreeRate, // Defaults to existing
-      priceHistory
+      priceHistory,
+      cash: dailyFinalCash,
+      positions: {
+         ...state.positions,
+         options: activeOptions
+      }
     };
   }),
 
@@ -122,24 +160,37 @@ export const useTradingStore = create((set, get) => ({
   }),
 
   tradeOption: (optionDetails) => set((state) => {
-    const { type, strike, quantity, price } = optionDetails; 
+    const { type, strike, quantity, price, expiration } = optionDetails; 
     // quantity > 0 means buy to open/cover, < 0 means sell to open/close
     // Options contract size is 100 multiplier
     const cost = quantity * price * 100;
 
+    const newOptions = [...state.positions.options];
+    const existingIndex = newOptions.findIndex(o => o.type === type && o.strike === strike && o.expiration === expiration);
+    
+    // Margin Check Logic
     if (quantity > 0 && state.cash < cost) {
       alert('现金不足，无法进行期权交易。');
       return state;
     }
-    
-    // For selling options, simple margin check
-    if (quantity < 0 && state.cash < Math.abs(cost)) {
-      alert('保证金不足，无法卖出期权。');
-      return state;
-    }
 
-    const newOptions = [...state.positions.options];
-    const existingIndex = newOptions.findIndex(o => o.type === type && o.strike === strike);
+    if (quantity < 0) {
+      // Selling options. Are we selling to close (we have a long position) or selling to open (naked short)?
+      let isSellToOpen = true;
+      if (existingIndex >= 0) {
+        const existingQty = newOptions[existingIndex].quantity;
+        if (existingQty > 0) {
+          isSellToOpen = false; // We are closing an existing long position
+          // Technically, if they sell MORE than they have long, the excess is "Sell to Open", but we'll keep it simple:
+          // If selling to close, margin is not required.
+        }
+      }
+
+      if (isSellToOpen && state.cash < Math.abs(cost)) {
+        alert('保证金不足，无法卖出期权开仓。');
+        return state;
+      }
+    }
 
     if (existingIndex >= 0) {
       const existing = newOptions[existingIndex];
@@ -165,9 +216,10 @@ export const useTradingStore = create((set, get) => ({
     } else {
       // New position
       newOptions.push({
-        id: `${type}-${strike}`,
+        id: `${type}-${strike}-${expiration}`,
         type,
         strike,
+        expiration,
         quantity,
         averagePrice: price // Average price remains per-share price for display and PnL calc
       });
@@ -210,23 +262,15 @@ export const useTradingStore = create((set, get) => ({
       profit: runValue - CONFIG.INITIAL_CASH
     }];
 
+    const refreshedHistory = buildInitialHistory();
+    const refreshedPrice = refreshedHistory[refreshedHistory.length - 1].close;
+
     return {
       historyRuns: newHistory,
       currentDate: new Date(CONFIG.START_DATE),
       isExpired: false,
-      currentStockPrice: CONFIG.INITIAL_STOCK_PRICE,
-      priceHistory: [
-        { 
-          date: new Date(CONFIG.START_DATE).toLocaleDateString(), 
-          price: CONFIG.INITIAL_STOCK_PRICE,
-          open: CONFIG.INITIAL_STOCK_PRICE,
-          high: CONFIG.INITIAL_STOCK_PRICE,
-          low: CONFIG.INITIAL_STOCK_PRICE,
-          close: CONFIG.INITIAL_STOCK_PRICE,
-          volume: 0,
-          event: null
-        }
-      ],
+      currentStockPrice: refreshedPrice,
+      priceHistory: refreshedHistory,
       volatility: CONFIG.INITIAL_VOLATILITY,
       activeShockDelay: 0,
       activeCrushDelay: 0,

@@ -6,36 +6,97 @@ import { X, TrendingUp, TrendingDown } from 'lucide-react';
 export default function TradeModal({ tradeDetails, onClose }) {
   const [quantity, setQuantity] = useState('');
   const [action, setAction] = useState('BUY'); // BUY or SELL
+  const [limitMsg, setLimitMsg] = useState(null);
+  const [fillRejection, setFillRejection] = useState(null);
   
   const currentStockPrice = useTradingStore(state => state.currentStockPrice);
+  const currentDate = useTradingStore(state => state.currentDate);
   const tradeStock = useTradingStore(state => state.tradeStock);
   const tradeOption = useTradingStore(state => state.tradeOption);
 
   if (!tradeDetails) return null;
 
   const isStock = tradeDetails.type === 'STOCK';
-  const price = isStock ? currentStockPrice : tradeDetails.price;
   
-  // For options, 1 contract is 100 shares. Total cost is price * quantity * 100
+  // Liquidity Engine Calculations
+  let displayPrice = isStock ? currentStockPrice : tradeDetails.price;
+  let isIlliquid = false;
+  
+  if (!isStock) {
+    const strike = tradeDetails.strike;
+    const distanceToStrike = Math.abs(currentStockPrice - strike) / currentStockPrice;
+    
+    // Parse expiration
+    const expDate = new Date(tradeDetails.expiration);
+    const daysToExpiry = Math.max(0, Math.ceil((expDate.getTime() - currentDate.getTime()) / (1000 * 3600 * 24)));
+    
+    // Bid = 0 Logic for deep OTM near-expiry
+    if (distanceToStrike > 0.20 && daysToExpiry <= 2 && action === 'SELL') {
+       displayPrice = 0; // The bid is effectively 0
+       isIlliquid = true;
+    }
+    
+    // Add artificial spread based on distance and action
+    if (!isIlliquid && distanceToStrike > 0.10) {
+       // Spread widens the deeper OTM it gets
+       const spreadPadding = displayPrice * (distanceToStrike / 2);
+       if (action === 'BUY') displayPrice += spreadPadding; // Ask is higher
+       if (action === 'SELL') displayPrice = Math.max(0, displayPrice - spreadPadding); // Bid is lower
+    }
+  }
+
+  // Cost calculation
   const multiplier = isStock ? 1 : 100;
   
   const handleTrade = () => {
-    const qty = parseInt(quantity, 10);
+    setFillRejection(null);
+    setLimitMsg(null);
+    
+    let qty = parseInt(quantity, 10);
     if (!qty || isNaN(qty) || qty <= 0) {
-       alert("Please enter a valid quantity.");
+       alert("请输入有效数量。");
        return;
+    }
+
+    if (!isStock) {
+       const absDelta = Math.abs(tradeDetails.delta);
+       
+       // Volume Limit Simulation
+       let maxVolumeLimit = 1000;
+       if (absDelta < 0.10) maxVolumeLimit = Math.floor(10 + Math.random() * 40); // 10-50 max typical
+       else if (absDelta < 0.30) maxVolumeLimit = Math.floor(50 + Math.random() * 200);
+       
+       // Partial fill logic
+       if (qty > maxVolumeLimit) {
+           setLimitMsg(`市场深度不足！部分成交：仅撮合 ${maxVolumeLimit} 张。剩余订单已撤销。`);
+           qty = maxVolumeLimit;
+           setQuantity(qty.toString());
+           // Let user see the message before actually placing the trade next click
+           return;
+       }
+
+       // Probability Engine (Delta based)
+       if (absDelta < 0.05 && action === 'SELL') {
+           // E.g., Delta 0.02 => Probability = 1 - (1/(0.02*100)) = 1 - (1/2) = 50% chance
+           const probability = Math.max(0, 1 - (1 / (absDelta * 100)));
+           if (Math.random() > probability) {
+               setFillRejection("流动性枯竭：对手方不足！未找到愿意接盘的买家。");
+               return; // Reject trade completely
+           }
+       }
     }
 
     const tradeQty = action === 'BUY' ? qty : -qty;
 
     if (isStock) {
-      tradeStock(tradeQty, price);
+      tradeStock(tradeQty, displayPrice);
     } else {
       tradeOption({
         type: tradeDetails.type,
         strike: tradeDetails.strike,
         quantity: tradeQty,
-        price: price
+        price: displayPrice,
+        expiration: tradeDetails.expiration
       });
     }
     onClose();
@@ -62,8 +123,13 @@ export default function TradeModal({ tradeDetails, onClose }) {
               </div>
             </div>
             <div className="text-right">
-              <div className="text-sm text-slate-400 font-medium uppercase tracking-wider mb-1">单价</div>
-              <div className="text-2xl font-bold text-indigo-400">{formatCurrency(price)}</div>
+              <div className="text-sm text-slate-400 font-medium uppercase tracking-wider mb-1">
+                 {isStock ? '单价' : (action === 'BUY' ? '卖出价 (Ask)' : '买入价 (Bid)')}
+              </div>
+              <div className={`text-2xl font-bold ${isIlliquid ? 'text-rose-500' : 'text-indigo-400'}`}>
+                 {formatCurrency(displayPrice)}
+                 {isIlliquid && <span className="text-xs ml-2 text-rose-500 block font-normal">无买盘</span>}
+              </div>
             </div>
           </div>
           
@@ -96,12 +162,25 @@ export default function TradeModal({ tradeDetails, onClose }) {
             />
           </div>
 
-          <div className="bg-slate-900/30 p-4 rounded-xl border border-slate-700/50 flex justify-between items-center">
+          <div className={`bg-slate-900/30 p-4 rounded-xl border flex justify-between items-center ${isIlliquid ? 'border-rose-500/50' : 'border-slate-700/50'}`}>
              <span className="text-slate-400 font-medium">预估总额</span>
              <span className="text-xl font-bold text-white">
-               {quantity ? formatCurrency((parseFloat(quantity) || 0) * price * multiplier) : '$0.00'}
+               {quantity ? formatCurrency((parseFloat(quantity) || 0) * displayPrice * multiplier) : '$0.00'}
              </span>
           </div>
+          
+          {limitMsg && (
+             <div className="text-amber-400 bg-amber-400/10 px-4 py-2 rounded-lg text-sm text-center animate-pulse">
+                {limitMsg}
+                <div className="text-xs text-amber-500/80 mt-1">请再次点击确认提交订单</div>
+             </div>
+          )}
+          
+          {fillRejection && (
+             <div className="text-rose-400 bg-rose-400/10 px-4 py-2 rounded-lg text-sm text-center font-bold animate-pulse">
+                {fillRejection}
+             </div>
+          )}
           
           <button 
             onClick={handleTrade}

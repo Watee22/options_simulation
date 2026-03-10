@@ -29,7 +29,7 @@ const Candlestick = (props) => {
   return (
     <g stroke={color} fill={isGrowing ? 'transparent' : color} strokeWidth="2">
       <path d={`M${x + halfWidth},${highY} L${x + halfWidth},${lowY}`} />
-      <rect x={x} y={y} width={width} height={height || 1} />
+      <rect x={x} y={height < 0 ? y + height : y} width={width} height={Math.abs(height) || 1} />
     </g>
   );
 };

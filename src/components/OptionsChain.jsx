@@ -9,6 +9,35 @@ export default function OptionsChain({ onTradeClick }) {
   const currentDate = useTradingStore(state => state.currentDate);
   const volatility = useTradingStore(state => state.volatility);
   
+  // Calculate dynamic consecutive Friday expirations based on current date
+  const expirations = useMemo(() => {
+    const dates = [];
+    const dateCursor = new Date(currentDate);
+    // Find next Friday (0DTE if today is Friday)
+    const dayOfWeek = dateCursor.getDay();
+    const daysUntilFriday = (5 + 7 - dayOfWeek) % 7;
+    dateCursor.setDate(dateCursor.getDate() + daysUntilFriday);
+    
+    // Add up to 3 weeks of expirations
+    for (let i = 0; i < 3; i++) {
+        const expDate = new Date(dateCursor);
+        expDate.setDate(dateCursor.getDate() + (i * 7));
+        dates.push(expDate);
+    }
+    return dates;
+  }, [currentDate]);
+
+  const [selectedExpiration, setSelectedExpiration] = useState(0);
+
+  // Auto-roll selected expiration if the current one expires
+  useMemo(() => {
+     if (expirations.length > 0 && currentDate > expirations[selectedExpiration]) {
+         setSelectedExpiration(0);
+     }
+  }, [currentDate, expirations, selectedExpiration]);
+
+  const activeExpirationDate = expirations[selectedExpiration];
+  
   // Generate strikes dynamically around current stock price
   const strikes = useMemo(() => {
     const list = [];
@@ -22,7 +51,8 @@ export default function OptionsChain({ onTradeClick }) {
 
   // Calculate pricing for all strikes
   const optionsData = useMemo(() => {
-    const T = calculateTimeInYears(currentDate, CONFIG.END_DATE);
+    if (!activeExpirationDate) return [];
+    const T = calculateTimeInYears(currentDate, activeExpirationDate);
     return strikes.map(strike => {
       const data = calculateBlackScholes(
         currentPrice, 
@@ -47,10 +77,25 @@ export default function OptionsChain({ onTradeClick }) {
   return (
     <div className="bg-slate-800 rounded-xl border border-slate-700 shadow-lg overflow-hidden flex flex-col h-full">
       <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-800/80">
-        <h2 className="text-xl font-bold text-white">期权链 (T型报价)</h2>
+        <h2 className="text-xl font-bold text-white flex items-center gap-3">
+          期权链 (T型报价)
+          <select 
+            value={selectedExpiration}
+            onChange={(e) => setSelectedExpiration(Number(e.target.value))}
+            className="ml-2 bg-slate-900 border border-slate-600 text-sm font-medium text-white px-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {expirations.map((exp, idx) => {
+              const daysToExpiry = Math.max(0, Math.ceil((exp.getTime() - currentDate.getTime()) / (1000 * 3600 * 24)));
+              return (
+                <option key={idx} value={idx}>
+                  {exp.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })} ({daysToExpiry} DTE)
+                </option>
+              )
+            })}
+          </select>
+        </h2>
         <div className="flex items-center gap-4 text-sm font-medium">
           <span className="text-slate-400">隐含波动率: <span className="text-amber-400">{(volatility * 100).toFixed(1)}%</span></span>
-          <span className="text-slate-400">到期日: <span className="text-white">4月30日</span></span>
         </div>
       </div>
       
@@ -84,7 +129,7 @@ export default function OptionsChain({ onTradeClick }) {
               const putITM = currentPrice < row.strike;
               
               const makeTrade = (type, price) => () => {
-                onTradeClick({ type, strike: row.strike, price });
+                onTradeClick({ type, strike: row.strike, price, expiration: activeExpirationDate.toISOString(), delta: type === 'CALL' ? row.callDelta : row.putDelta });
               };
               
               return (

@@ -156,3 +156,75 @@ export function generateNextDayPrice(currentPrice, r, v, dt = 1/365, isEvent = f
   
   return { open, high, low, close, volume };
 }
+
+/**
+ * Core 3: Brownian Bridge for Next Day Price
+ * Forces the random walk to reach `targetPrice` exactly when `daysRemaining` reaches 0.
+ * @param {number} currentPrice Current closing price
+ * @param {number} targetPrice The required price at the end date (e.g. 100)
+ * @param {number} daysRemaining Days left until the end date
+ * @param {number} r Risk-free rate
+ * @param {number} v Volatility
+ * @param {number} dt Time step (default 1/365 years)
+ * @param {boolean} isEvent Flag for extreme events
+ */
+export function generateBridgeNextDayPrice(currentPrice, targetPrice, daysRemaining, r, v, dt = 1/365, isEvent = false) {
+  if (daysRemaining <= 0) {
+    // We are at the final day, force exactly to target price (with minor intraday noise)
+    const exactClose = targetPrice;
+    
+    // Create sensible OHLC around the forced close
+    const move = exactClose - currentPrice;
+    const open = Math.round((currentPrice + move * 0.2) * 100) / 100;
+    const high = Math.round(Math.max(open, exactClose) * 1.01 * 100) / 100;
+    const low = Math.max(0.01, Math.round(Math.min(open, exactClose) * 0.99 * 100) / 100);
+    
+    return { open, high, low, close: exactClose, volume: 2000000 };
+  }
+
+  // Calculate required expected daily drift to hit the target smoothly
+  const totalReturnNeeded = Math.log(targetPrice / currentPrice);
+  const requiredDailyDrift = totalReturnNeeded / daysRemaining;
+  
+  // Use required daily drift instead of risk free rate `r`
+  // Reverse engineer an effective 'r' that produces this drift
+  const shockV = isEvent ? v * 2.8 : v;
+  const effectiveR = (requiredDailyDrift / dt) + 0.5 * shockV * shockV;
+
+  // Now use standard GBM but with the effective drift rate pulling it towards the target
+  return generateNextDayPrice(currentPrice, effectiveR, v, dt, isEvent);
+}
+
+/**
+ * Utility: Generate Historical Pre-warm Data (e.g. Feb 1 to March 1)
+ */
+export function generateHistoricalData(startDateObj, daysToGenerate, startPrice, r, v) {
+  const history = [];
+  let currentP = startPrice;
+  const dateCursor = new Date(startDateObj);
+  // Optional: We can walk backwards or forwards. It's easier to walk forwards up to the "current date".
+  // So we assume startDateObj is the PAST (e.g. 30 days ago), and we generate FORWARDS to the present.
+  
+  history.push({
+    date: new Date(dateCursor).toLocaleDateString(),
+    price: currentP, open: currentP, high: currentP, low: currentP, close: currentP, volume: 0, event: null
+  });
+
+  for (let i = 0; i < daysToGenerate; i++) {
+    dateCursor.setDate(dateCursor.getDate() + 1);
+    const ohlc = generateNextDayPrice(currentP, r, v, 1/365, false);
+    currentP = ohlc.close;
+    history.push({
+      date: new Date(dateCursor).toLocaleDateString(),
+      price: ohlc.close,
+      open: ohlc.open,
+      high: ohlc.high,
+      low: ohlc.low,
+      close: ohlc.close,
+      volume: ohlc.volume,
+      event: null
+    });
+  }
+  
+  return history;
+}

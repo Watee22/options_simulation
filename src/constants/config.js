@@ -1,9 +1,11 @@
 // src/constants/config.js
 
 export const CONFIG = {
-  START_DATE: '2024-03-15',
+  START_DATE: '2024-03-01',
+  ANCHOR_DATE: '2024-03-15',
+  ANCHOR_PRICE: 100,
   END_DATE: '2024-04-30',
-  TOTAL_DAYS: 46, // From March 15 to April 30 inclusive
+  TOTAL_DAYS: 61, // From March 1 to April 30 inclusive
   INITIAL_CASH: 100000,
   
   // Market Data params

@@ -18,19 +18,24 @@ export default function Portfolio({ onTradeStockClick, onTradeOptionClick }) {
     let stockCost = 0; // Simplified
     
     let optionsValue = 0;
-    const T = calculateTimeInYears(currentDate, CONFIG.END_DATE);
-    
     // Evaluate current option positions
     const evaluatedOptions = positions.options.map(opt => {
+      const timeToExpiry = calculateTimeInYears(currentDate, opt.expiration);
       let currentOptPrice = 0;
-      if (T > 0) {
-         const bs = calculateBlackScholes(currentPrice, opt.strike, T, CONFIG.RISK_FREE_RATE, volatility);
+      let optDelta = 0;
+
+      if (timeToExpiry > 0) {
+         const bs = calculateBlackScholes(currentPrice, opt.strike, timeToExpiry, CONFIG.RISK_FREE_RATE, volatility);
          currentOptPrice = opt.type === 'CALL' ? bs.callPrice : bs.putPrice;
+         optDelta = opt.type === 'CALL' ? bs.callDelta : bs.putDelta;
       } else {
          // Expired state intrinsic value
          currentOptPrice = opt.type === 'CALL' 
             ? Math.max(0, currentPrice - opt.strike) 
             : Math.max(0, opt.strike - currentPrice);
+         optDelta = opt.type === 'CALL' 
+            ? (currentPrice > opt.strike ? 1 : 0)
+            : (currentPrice < opt.strike ? -1 : 0);
       }
       
       const currentValue = currentOptPrice * opt.quantity * 100; // Multiplier is 100 for display
@@ -42,6 +47,7 @@ export default function Portfolio({ onTradeStockClick, onTradeOptionClick }) {
       return {
         ...opt,
         currentPrice: currentOptPrice,
+        delta: optDelta,
         currentValue,
         unrealizedPnL
       };
@@ -126,12 +132,18 @@ export default function Portfolio({ onTradeStockClick, onTradeOptionClick }) {
               return (
                 <div 
                   key={idx} 
-                  onClick={() => onTradeOptionClick && onTradeOptionClick({ type: opt.type, strike: opt.strike, price: opt.currentPrice })}
+                  onClick={() => onTradeOptionClick && onTradeOptionClick({ type: opt.type, strike: opt.strike, price: opt.currentPrice, expiration: opt.expiration, delta: opt.delta })}
                   className="bg-slate-700/30 p-3 rounded-lg flex justify-between items-center border border-slate-600/50 cursor-pointer hover:bg-slate-700/50 transition-colors"
                 >
                   <div>
                     <div className="font-bold text-white flex items-center gap-2">
-                       {opt.strike} <span className={`text-xs px-1.5 py-0.5 rounded font-bold ${typeColor}`}>{opt.type === 'CALL' ? '看涨' : '看跌'}</span>
+                       {opt.strike} 
+                       <span className={`text-xs px-1.5 py-0.5 rounded font-bold ${typeColor}`}>
+                         {opt.type === 'CALL' ? '看涨' : '看跌'}
+                       </span>
+                       <span className="text-xs text-slate-400 font-normal">
+                         到期: {new Date(opt.expiration).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+                       </span>
                     </div>
                     <div className="text-xs text-slate-400 mt-1">
                       {Math.abs(opt.quantity)} 张 {opt.quantity > 0 ? '做多' : '做空'} @ 成本 {formatCurrency(opt.averagePrice)}

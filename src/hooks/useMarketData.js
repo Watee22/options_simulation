@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useTradingStore } from '../store/useTradingStore';
 import { CONFIG } from '../constants/config';
-import { generateNextDayPrice } from '../utils/mathUtils';
+import { generateNextDayPrice, generateBridgeNextDayPrice } from '../utils/mathUtils';
 import { MACRO_EVENTS, getDateStringMD, getUpcomingEventVolatilityImpact } from '../constants/eventsConfig';
 
 export function useMarketData() {
@@ -87,13 +87,30 @@ export function useMarketData() {
     }
 
     // Generate price baseline
-    const ohlc = generateNextDayPrice(
-      currentStockPrice,
-      r,
-      v,
-      1 / 365, // dt
-      isRandomShock
-    );
+    const anchorDate = new Date(CONFIG.ANCHOR_DATE);
+    const timeDiff = anchorDate.getTime() - nextDate.getTime();
+    const daysRemainingToAnchor = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    
+    let ohlc;
+    if (daysRemainingToAnchor >= 0) {
+      ohlc = generateBridgeNextDayPrice(
+        currentStockPrice,
+        CONFIG.ANCHOR_PRICE,
+        daysRemainingToAnchor,
+        r,
+        v,
+        1 / 365,
+        isRandomShock
+      );
+    } else {
+      ohlc = generateNextDayPrice(
+        currentStockPrice,
+        r,
+        v,
+        1 / 365, // dt
+        isRandomShock
+      );
+    }
 
     // Apply the macro event jump to the generated OHLC
     // We multiply open, high, low, close by the gap multiplier
