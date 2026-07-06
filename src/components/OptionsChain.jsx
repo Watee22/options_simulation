@@ -49,14 +49,8 @@ export default function OptionsChain({ onTradeClick }) {
 
   const [selectedExpiration, setSelectedExpiration] = useState(0);
 
-  // Auto-roll selected expiration if the current one expires
-  useMemo(() => {
-     if (expirations.length > 0 && currentDate > expirations[selectedExpiration]) {
-         setSelectedExpiration(0);
-     }
-  }, [currentDate, expirations, selectedExpiration]);
-
-  const activeExpirationDate = expirations[selectedExpiration];
+  const selectedExpirationIndex = selectedExpiration < expirations.length ? selectedExpiration : 0;
+  const activeExpirationDate = expirations[selectedExpirationIndex];
   
   // Generate strikes dynamically around current stock price
   const strikes = useMemo(() => {
@@ -113,22 +107,13 @@ export default function OptionsChain({ onTradeClick }) {
     });
   }, [strikes, currentPrice, currentDate, volatility, activeExpirationDate]);
 
-  const Cell = ({ value, isMoney, onClick }) => (
-    <td 
-      onClick={onClick}
-      className={`px-3 py-2 text-center text-sm cursor-pointer hover:bg-slate-700 transition-colors border-b border-slate-700/50 ${isMoney ? 'font-medium text-emerald-400' : 'text-slate-300'}`}
-    >
-      {value}
-    </td>
-  );
-
   return (
     <div className="bg-slate-800 rounded-xl border border-slate-700 shadow-lg overflow-hidden flex flex-col h-full">
       <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-800/80">
         <h2 className="text-xl font-bold text-white flex items-center gap-3">
           期权链 (T型报价)
           <select 
-            value={selectedExpiration}
+            value={selectedExpirationIndex}
             onChange={(e) => setSelectedExpiration(Number(e.target.value))}
             className="ml-2 bg-slate-900 border border-slate-600 text-sm font-medium text-white px-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >

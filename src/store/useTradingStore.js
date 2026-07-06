@@ -21,7 +21,7 @@ function buildInitialHistory() {
 const initialHistory = buildInitialHistory();
 const initialStockPrice = initialHistory[initialHistory.length - 1].close;
 
-export const useTradingStore = create((set, get) => ({
+export const useTradingStore = create((set) => ({
   // History of runs in this session window
   historyRuns: [],
 
@@ -288,12 +288,6 @@ export const useTradingStore = create((set, get) => ({
 
   // trading handlers
   resetSimulation: () => set((state) => {
-    // Save current attempt to history
-    const finalNetLiq = state.cash + (state.positions.stock * state.currentStockPrice) + 
-      // Simplified: intrinsic of options. If expired, it's already in cash. 
-      // If reset mid-way, just taking cash + stock for simplified history logic
-      0; 
-
     // We'll calculate a crude "final portfolio value" to save in history
     let optionsValue = 0;
     state.positions.options.forEach(opt => {

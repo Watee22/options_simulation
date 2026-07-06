@@ -15,10 +15,6 @@ export default function Portfolio({ onTradeStockClick, onTradeOptionClick }) {
 
   // Calculate Unrealized PnL and Net Liq
   const pnlData = useMemo(() => {
-    let stockValue = positions.stock * currentPrice;
-    let stockCost = 0; // Simplified
-    
-    let optionsValue = 0;
     // Evaluate current option positions
     const evaluatedOptions = positions.options.map(opt => {
       const timeToExpiry = calculateTimeInYears(currentDate, opt.expiration);
@@ -42,9 +38,7 @@ export default function Portfolio({ onTradeStockClick, onTradeOptionClick }) {
       const currentValue = currentOptPrice * opt.quantity * 100; // Multiplier is 100 for display
       const initialCost = opt.averagePrice * opt.quantity * 100;
       const unrealizedPnL = currentValue - initialCost;
-      
-      optionsValue += currentValue;
-      
+
       return {
         ...opt,
         currentPrice: currentOptPrice,
@@ -53,6 +47,8 @@ export default function Portfolio({ onTradeStockClick, onTradeOptionClick }) {
         unrealizedPnL
       };
     });
+
+    const optionsValue = evaluatedOptions.reduce((total, opt) => total + opt.currentValue, 0);
     
     const netLiq = cash + (positions.stock * currentPrice) + optionsValue; // Simplified stock account structure
     const totalUnrealized = netLiq - CONFIG.INITIAL_CASH;

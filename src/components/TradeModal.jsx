@@ -3,6 +3,17 @@ import { useTradingStore } from '../store/useTradingStore';
 import { formatCurrency } from '../utils/formatters';
 import { X, TrendingUp, TrendingDown, Lightbulb } from 'lucide-react';
 
+function getMaxVolumeLimit(absDelta) {
+  if (absDelta < 0.10) return Math.floor(10 + Math.random() * 40); // 10-50 max typical
+  if (absDelta < 0.30) return Math.floor(50 + Math.random() * 200);
+  return 1000;
+}
+
+function shouldRejectThinMarketSell(absDelta) {
+  const probability = Math.max(0, 1 - (1 / (absDelta * 100)));
+  return Math.random() > probability;
+}
+
 export default function TradeModal({ tradeDetails, onClose }) {
   const [quantity, setQuantity] = useState('');
   const [action, setAction] = useState('BUY'); // BUY or SELL
@@ -63,9 +74,7 @@ export default function TradeModal({ tradeDetails, onClose }) {
        const absDelta = Math.abs(tradeDetails.delta);
        
        // Volume Limit Simulation
-       let maxVolumeLimit = 1000;
-       if (absDelta < 0.10) maxVolumeLimit = Math.floor(10 + Math.random() * 40); // 10-50 max typical
-       else if (absDelta < 0.30) maxVolumeLimit = Math.floor(50 + Math.random() * 200);
+       const maxVolumeLimit = getMaxVolumeLimit(absDelta);
        
        // Partial fill logic
        if (qty > maxVolumeLimit) {
@@ -78,9 +87,7 @@ export default function TradeModal({ tradeDetails, onClose }) {
 
        // Probability Engine (Delta based)
        if (absDelta < 0.05 && action === 'SELL') {
-           // E.g., Delta 0.02 => Probability = 1 - (1/(0.02*100)) = 1 - (1/2) = 50% chance
-           const probability = Math.max(0, 1 - (1 / (absDelta * 100)));
-           if (Math.random() > probability) {
+           if (shouldRejectThinMarketSell(absDelta)) {
                setFillRejection("流动性枯竭：对手方不足！未找到愿意接盘的买家。");
                return; // Reject trade completely
            }

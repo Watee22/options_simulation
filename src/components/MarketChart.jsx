@@ -2,7 +2,7 @@ import { useTradingStore } from '../store/useTradingStore';
 import { ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, Label } from 'recharts';
 import { TrendingUp, TrendingDown, Info, ShieldAlert, Cpu, Award, Lightbulb } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { MACRO_EVENTS, getDateStringMD } from '../constants/eventsConfig';
 
 // Custom shape for candlestick chart matching Recharts API
@@ -36,6 +36,25 @@ const Candlestick = (props) => {
   );
 };
 
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl shadow-xl space-y-1">
+        <p className="text-slate-400 text-sm mb-2">{label}</p>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+          <span className="text-slate-400">开盘价</span><span className="text-white font-medium">{formatCurrency(data.open)}</span>
+          <span className="text-slate-400">最高价</span><span className="text-emerald-400 font-medium">{formatCurrency(data.high)}</span>
+          <span className="text-slate-400">最低价</span><span className="text-rose-400 font-medium">{formatCurrency(data.low)}</span>
+          <span className="text-slate-400">收盘价</span><span className="text-indigo-400 font-bold">{formatCurrency(data.close)}</span>
+          <span className="text-slate-400 mt-1">成交量</span><span className="text-amber-400 font-medium mt-1">{(data.volume / 1000).toFixed(1)}k</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function MarketChart() {
   const priceHistory = useTradingStore(state => state.priceHistory);
   const currentPrice = useTradingStore(state => state.currentStockPrice);
@@ -51,21 +70,19 @@ export default function MarketChart() {
   const [showLore, setShowLore] = useState(false);
 
   // Check for upcoming events within 2 days for the hint system
-  const upcomingEvent = useMemo(() => {
-    if (!hintMode) return null;
-    
-    // Check today, tomorrow, and day after tomorrow
+  let upcomingEvent = null;
+  if (hintMode) {
     for (let i = 0; i <= 2; i++) {
-        const checkDate = new Date(currentDate);
-        checkDate.setDate(checkDate.getDate() + i);
-        const md = getDateStringMD(checkDate);
-        const evt = MACRO_EVENTS[md];
-        if (evt) {
-            return { event: evt, daysAway: i };
-        }
+      const checkDate = new Date(currentDate);
+      checkDate.setDate(checkDate.getDate() + i);
+      const md = getDateStringMD(checkDate);
+      const evt = MACRO_EVENTS[md];
+      if (evt) {
+        upcomingEvent = { event: evt, daysAway: i };
+        break;
+      }
     }
-    return null;
-  }, [currentDate, hintMode]);
+  }
 
   // Prepare data for composing candlestick and volume
   const chartData = priceHistory.map(d => ({
@@ -85,25 +102,6 @@ export default function MarketChart() {
   // Make the chart width proportional to the number of days so that 30 days exactly fits the container view.
   const visibleDays = 30;
   const chartWidthPercent = Math.max(100, (chartData.length / visibleDays) * 100);
-
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl shadow-xl space-y-1">
-          <p className="text-slate-400 text-sm mb-2">{label}</p>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-            <span className="text-slate-400">开盘价</span><span className="text-white font-medium">{formatCurrency(data.open)}</span>
-            <span className="text-slate-400">最高价</span><span className="text-emerald-400 font-medium">{formatCurrency(data.high)}</span>
-            <span className="text-slate-400">最低价</span><span className="text-rose-400 font-medium">{formatCurrency(data.low)}</span>
-            <span className="text-slate-400">收盘价</span><span className="text-indigo-400 font-bold">{formatCurrency(data.close)}</span>
-            <span className="text-slate-400 mt-1">成交量</span><span className="text-amber-400 font-medium mt-1">{(data.volume / 1000).toFixed(1)}k</span>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg flex flex-col h-full w-full">
