@@ -5,33 +5,40 @@ import { formatCurrency } from '../utils/formatters';
 import { useRef, useEffect, useState } from 'react';
 import { MACRO_EVENTS, getDateStringMD } from '../constants/eventsConfig';
 
-// Custom shape for candlestick chart matching Recharts API
+// Custom shape for candlestick matching Recharts API.
+// The Bar value is [low, high], so props.y / props.height already span the
+// whole wick on the Y-axis scale; the body (open -> close) is then positioned
+// inside that span using price ratios. This also handles doji candles
+// (open === close) and flat candles (high === low) correctly, which the old
+// body-derived scale could not.
 const Candlestick = (props) => {
   const {
     x, y, width, height, payload,
   } = props;
-  
+
   const { open, close, high, low } = payload;
   const isGrowing = close >= open;
   const color = isGrowing ? '#10b981' : '#f43f5e'; // emerald-500, rose-500
-  
-  // y and height are calculated for [open, close] based on y-axis scale automatically when using data array
-  // We just need to draw the wick from high to low manually
+
   const halfWidth = width / 2;
-  
-  // To draw the wick, we need to locate the high and low on the Y axis, 
-  // but Recharts already gives us the scaled bounding box of the body (y and y+height)
-  // We can calculate scale using the body values
-  const priceDiff = Math.abs(open - close);
-  const pixelsPerDollar = priceDiff > 0 ? height / priceDiff : 0;
-  
-  const highY = y - (high - Math.max(open, close)) * pixelsPerDollar;
-  const lowY = y + height + (Math.min(open, close) - low) * pixelsPerDollar;
+  const wickTop = y;             // scaled position of high
+  const wickBottom = y + height; // scaled position of low
+
+  const priceRange = high - low;
+  let bodyTop = wickTop;
+  let bodyBottom = wickBottom;
+  if (priceRange > 0) {
+    const pixelsPerDollar = height / priceRange;
+    bodyTop = wickTop + (high - Math.max(open, close)) * pixelsPerDollar;
+    bodyBottom = wickTop + (high - Math.min(open, close)) * pixelsPerDollar;
+  }
+
+  const bodyHeight = Math.max(1, bodyBottom - bodyTop);
 
   return (
     <g stroke={color} fill={isGrowing ? 'transparent' : color} strokeWidth="2">
-      <path d={`M${x + halfWidth},${highY} L${x + halfWidth},${lowY}`} />
-      <rect x={x} y={height < 0 ? y + height : y} width={width} height={Math.abs(height) || 1} />
+      <path d={`M${x + halfWidth},${wickTop} L${x + halfWidth},${wickBottom}`} />
+      <rect x={x} y={bodyTop} width={width} height={bodyHeight} />
     </g>
   );
 };
@@ -84,10 +91,11 @@ export default function MarketChart() {
     }
   }
 
-  // Prepare data for composing candlestick and volume
+  // The Bar value is [low, high] so Recharts scales the full wick range;
+  // the custom shape positions the body (open/close) relative to the wick.
   const chartData = priceHistory.map(d => ({
     ...d,
-    ohlc: [d.open, d.close] // This gives Recharts the body bounds for the custom shape
+    wick: [d.low, d.high]
   }));
 
   const scrollContainerRef = useRef(null);
@@ -189,7 +197,7 @@ export default function MarketChart() {
                 tickFormatter={(val) => `$${val}`}
               />
               <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#475569', strokeDasharray: '3 3' }} />
-              <Bar dataKey="ohlc" shape={<Candlestick />} isAnimationActive={false} />
+              <Bar dataKey="wick" shape={<Candlestick />} isAnimationActive={false} />
               
               {chartData.filter(d => d.event).map((d, index) => (
                  <ReferenceLine 

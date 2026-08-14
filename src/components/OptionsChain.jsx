@@ -2,12 +2,15 @@ import { useState, useMemo } from 'react';
 import { useTradingStore } from '../store/useTradingStore';
 import { CONFIG } from '../constants/config';
 import { calculateBlackScholes } from '../utils/mathUtils';
-import { formatCurrency, formatGreeks, calculateTimeInYears } from '../utils/formatters';
+import { formatCurrency, formatGreeks, calculateTimeInYears, getDaysToExpiration } from '../utils/formatters';
+import { calculateOptionQuote } from '../utils/tradingUtils';
+import { getTermVolatility } from '../utils/optionPricing';
 
 export default function OptionsChain({ onTradeClick }) {
   const currentPrice = useTradingStore(state => state.currentStockPrice);
   const currentDate = useTradingStore(state => state.currentDate);
   const volatility = useTradingStore(state => state.volatility);
+  const riskFreeRate = useTradingStore(state => state.riskFreeRate);
   
   // Calculate dynamic consecutive Friday expirations based on current date
   const expirations = useMemo(() => {
@@ -72,40 +75,47 @@ export default function OptionsChain({ onTradeClick }) {
     // 1. Short-term options (Crush)
     // 2. Medium-term options (Event Volatility)
     // 3. Long-term options (Decay)
-    const daysToMaturity = T * 365;
-    let termVolatility = volatility;
-
-    if (daysToMaturity < 3) {
-        // Aggressive crush for 0-2 DTE
-        // Max safeguards against dividing by 0 or negative days
-        const crushFactor = Math.pow(Math.max(0.1, daysToMaturity) / 3, 0.5); 
-        termVolatility = termVolatility * crushFactor;
-    } else {
-        // Decay pushes IV back to CONFIG.INITIAL_VOLATILITY as time extends
-        // The power factor is mild to ensure T remains dominant
-        const timeVolAdjust = Math.exp(-(T - (3/365)) * 2); 
-        termVolatility = CONFIG.INITIAL_VOLATILITY + (volatility - CONFIG.INITIAL_VOLATILITY) * timeVolAdjust;
-    }
-
-    // Monotonicity Guarantee: Total variance (IV^2 * T) must not be lower than a generic 3-day baseline
-    // to prevent long-term options from becoming cheaper than medium-term options during shocks.
-    // We calculate a "floor variance" based on current prices and ensure the option respects it.
-    // For simplicity, we ensure termVolatility is at least the baseline.
-    if (termVolatility < CONFIG.INITIAL_VOLATILITY) {
-        termVolatility = CONFIG.INITIAL_VOLATILITY;
-    }
+    // Term structure + strike skew IV, shared with Portfolio so positions
+    // are always marked with the same inputs the options chain displays.
 
     return strikes.map(strike => {
+      const termVolatility = getTermVolatility(T, volatility, currentPrice, strike);
       const data = calculateBlackScholes(
         currentPrice, 
         strike, 
         T, 
-        CONFIG.RISK_FREE_RATE, 
+        riskFreeRate, 
         termVolatility
       );
-      return { strike, termVolatility, ...data };
+      const daysToExpiration = getDaysToExpiration(currentDate, activeExpirationDate);
+      return {
+        strike,
+        termVolatility,
+        callQuote: calculateOptionQuote({
+          theoreticalPrice: data.callPrice,
+          strike,
+          spotPrice: currentPrice,
+          daysToExpiration,
+          delta: data.callDelta,
+          volatility: termVolatility,
+        }),
+        putQuote: calculateOptionQuote({
+          theoreticalPrice: data.putPrice,
+          strike,
+          spotPrice: currentPrice,
+          daysToExpiration,
+          delta: data.putDelta,
+          volatility: termVolatility,
+        }),
+        ...data
+      };
     });
-  }, [strikes, currentPrice, currentDate, volatility, activeExpirationDate]);
+  }, [strikes, currentPrice, currentDate, volatility, riskFreeRate, activeExpirationDate]);
+
+  // ATM term IV for the header (skew makes per-strike IV differ)
+  const atmTermVol = optionsData.length > 0
+    ? (optionsData.find(r => Math.abs(r.strike - currentPrice) <= CONFIG.STRIKE_PRICE_STEP / 2) || optionsData[0]).termVolatility
+    : volatility;
 
   return (
     <div className="bg-slate-800 rounded-xl border border-slate-700 shadow-lg overflow-hidden flex flex-col h-full">
@@ -129,7 +139,7 @@ export default function OptionsChain({ onTradeClick }) {
         </h2>
         <div className="flex items-center gap-4 text-sm font-medium">
           <span className="text-slate-400">隐含波动率: <span className="text-amber-400">{(volatility * 100).toFixed(1)}%</span></span>
-          <span className="text-slate-400">到期波动率: <span className="text-rose-400">{(optionsData.length > 0 ? optionsData[0].termVolatility * 100 : volatility * 100).toFixed(1)}%</span></span>
+          <span className="text-slate-400">到期波动率(ATM): <span className="text-rose-400">{(atmTermVol * 100).toFixed(1)}%</span></span>
         </div>
       </div>
       
@@ -142,19 +152,19 @@ export default function OptionsChain({ onTradeClick }) {
               <th colSpan="5" className="px-4 py-2 text-center text-rose-400 font-semibold border-l border-slate-700">认沽期权 (PUT)</th>
             </tr>
             <tr className="text-xs text-slate-400 uppercase tracking-wider bg-slate-800/50">
-              <th className="px-3 py-2 font-medium">Vega</th>
-              <th className="px-3 py-2 font-medium">Gamma</th>
-              <th className="px-3 py-2 font-medium">Theta</th>
-              <th className="px-3 py-2 font-medium">Delta</th>
-              <th className="px-3 py-2 font-medium border-r border-slate-700">现价</th>
+              <th title="Vega：隐含波动率每变动 1%，期权价值的变化量" className="px-3 py-2 font-medium cursor-help">Vega</th>
+              <th title="Gamma：股价每变动 $1，Delta 的变化量（凸性）" className="px-3 py-2 font-medium cursor-help">Gamma</th>
+              <th title="Theta：每流逝 1 天，期权价值的变化量（时间衰减，买方通常为负）" className="px-3 py-2 font-medium cursor-help">Theta</th>
+              <th title="Delta：股价每变动 $1，期权价值的变化量；认购为正，认沽为负" className="px-3 py-2 font-medium cursor-help">Delta</th>
+              <th title="Bid / Ask：买入按 Ask 成交，卖出按 Bid 成交；价差即交易成本" className="px-3 py-2 font-medium border-r border-slate-700 cursor-help">Bid / Ask</th>
               
               <th className="px-3 py-2 font-bold bg-slate-800 text-slate-200">K</th>
               
-              <th className="px-3 py-2 font-medium border-l border-slate-700">现价</th>
-              <th className="px-3 py-2 font-medium">Delta</th>
-              <th className="px-3 py-2 font-medium">Theta</th>
-              <th className="px-3 py-2 font-medium">Gamma</th>
-              <th className="px-3 py-2 font-medium">Vega</th>
+              <th title="Bid / Ask：买入按 Ask 成交，卖出按 Bid 成交；价差即交易成本" className="px-3 py-2 font-medium border-l border-slate-700 cursor-help">Bid / Ask</th>
+              <th title="Delta：股价每变动 $1，期权价值的变化量；认购为正，认沽为负" className="px-3 py-2 font-medium cursor-help">Delta</th>
+              <th title="Theta：每流逝 1 天，期权价值的变化量（时间衰减，买方通常为负）" className="px-3 py-2 font-medium cursor-help">Theta</th>
+              <th title="Gamma：股价每变动 $1，Delta 的变化量（凸性）" className="px-3 py-2 font-medium cursor-help">Gamma</th>
+              <th title="Vega：隐含波动率每变动 1%，期权价值的变化量" className="px-3 py-2 font-medium cursor-help">Vega</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700/50">
@@ -162,8 +172,15 @@ export default function OptionsChain({ onTradeClick }) {
               const callITM = currentPrice > row.strike;
               const putITM = currentPrice < row.strike;
               
-              const makeTrade = (type, price) => () => {
-                onTradeClick({ type, strike: row.strike, price, expiration: activeExpirationDate.toISOString(), delta: type === 'CALL' ? row.callDelta : row.putDelta });
+              const makeTrade = (type, price, quote) => () => {
+                onTradeClick({
+                  type,
+                  strike: row.strike,
+                  price,
+                  quote,
+                  expiration: activeExpirationDate.toISOString(),
+                  delta: type === 'CALL' ? row.callDelta : row.putDelta
+                });
               };
               
               return (
@@ -174,10 +191,11 @@ export default function OptionsChain({ onTradeClick }) {
                   <td className="px-3 py-2 text-center text-xs text-slate-400">{formatGreeks(row.callTheta)}</td>
                   <td className="px-3 py-2 text-center text-xs text-emerald-500/80">{formatGreeks(row.callDelta)}</td>
                   <td 
-                    onClick={makeTrade('CALL', row.callPrice)}
+                    onClick={makeTrade('CALL', row.callQuote.mid, row.callQuote)}
                     className={`px-3 py-2 text-center font-medium cursor-pointer hover:bg-emerald-900/40 border-r border-slate-700 transition-colors ${callITM ? 'bg-emerald-900/20 text-emerald-300' : 'text-slate-300'}`}
                   >
-                    {formatCurrency(row.callPrice)}
+                    <div className="text-xs text-slate-400">{formatCurrency(row.callQuote.bid)}</div>
+                    <div className="text-sm text-emerald-300">{formatCurrency(row.callQuote.ask)}</div>
                   </td>
                   
                   {/* Strike */}
@@ -191,10 +209,11 @@ export default function OptionsChain({ onTradeClick }) {
                   
                   {/* Puts */}
                   <td 
-                    onClick={makeTrade('PUT', row.putPrice)}
+                    onClick={makeTrade('PUT', row.putQuote.mid, row.putQuote)}
                     className={`px-3 py-2 text-center font-medium cursor-pointer hover:bg-rose-900/40 border-l border-slate-700 transition-colors ${putITM ? 'bg-rose-900/20 text-rose-300' : 'text-slate-300'}`}
                   >
-                    {formatCurrency(row.putPrice)}
+                    <div className="text-xs text-slate-400">{formatCurrency(row.putQuote.bid)}</div>
+                    <div className="text-sm text-rose-300">{formatCurrency(row.putQuote.ask)}</div>
                   </td>
                   <td className="px-3 py-2 text-center text-xs text-rose-500/80">{formatGreeks(row.putDelta)}</td>
                   <td className="px-3 py-2 text-center text-xs text-slate-400">{formatGreeks(row.putTheta)}</td>

@@ -4,6 +4,26 @@
  * No external dependencies.
  */
 
+// ============================================================
+// Deterministic PRNG (mulberry32): the whole simulation is driven
+// by an explicit seed so a run's market path can be replayed exactly.
+// ============================================================
+let rngState = 0;
+
+/** Seed the simulation RNG (0 .. 2^32-1). */
+export function setRandomSeed(seed) {
+  rngState = seed >>> 0;
+}
+
+/** Next uniform [0,1) draw from the seeded RNG. */
+export function random() {
+  rngState = (rngState + 0x6D2B79F5) >>> 0;
+  let t = rngState;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
 /**
  * Helper: Standard Normal Cumulative Distribution Function (CDF)
  * Used to calculate N(d1) and N(d2) for Black-Scholes
@@ -108,8 +128,8 @@ export function calculateBlackScholes(S, K, T, r, v) {
  */
 function randomNormal() {
   let u = 0, v = 0;
-  while (u === 0) u = Math.random();
-  while (v === 0) v = Math.random();
+  while (u === 0) u = random();
+  while (v === 0) v = random();
   return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
 }
 
@@ -151,7 +171,7 @@ export function generateNextDayPrice(currentPrice, r, v, dt = 1/365, isEvent = f
 
   // Simulate Volume
   const baseVolume = 1000000;
-  const volMult = isEvent ? (3 + Math.random() * 5) : (0.5 + Math.random() * 1.5);
+  const volMult = isEvent ? (3 + random() * 5) : (0.5 + random() * 1.5);
   const volume = Math.floor(baseVolume * volMult);
   
   return { open, high, low, close, volume };

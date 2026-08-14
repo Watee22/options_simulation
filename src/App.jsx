@@ -40,7 +40,7 @@ function App() {
             <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-emerald-400">
               期权与股票交易模拟器
             </h1>
-            <p className="text-slate-400 text-sm font-medium">前沿量化教学实盘推演系统</p>
+            <p className="text-slate-400 text-sm font-medium">量化期权教学模拟推演系统</p>
           </div>
           <div className="ml-auto flex items-center gap-3">
             <button
